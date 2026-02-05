@@ -1,6 +1,6 @@
-# Waldseilgarten CRM
+# Mini CRM
 
-A modern Customer Relationship Management system for Waldseilgarten Herrenberg.
+A modern Customer Relationship Management system.
 
 [![Deutsch](https://img.shields.io/badge/lang-de-blue.svg)](README.de.md)
 [![English](https://img.shields.io/badge/lang-en-blue.svg)](README.md)
@@ -70,9 +70,9 @@ A modern Customer Relationship Management system for Waldseilgarten Herrenberg.
    ```
 
 4. **Access the application**
-   - Frontend: https://crm.waldseilgarten-herrenberg.de
-   - API: https://api.crm.waldseilgarten-herrenberg.de
-   - API Documentation: https://api.crm.waldseilgarten-herrenberg.de/api/docs
+   - Frontend: https://your-domain.com
+   - API: https://api.your-domain.com
+   - API Documentation: https://api.your-domain.com/api/docs
 
 ## 🔧 Configuration
 
@@ -80,11 +80,11 @@ A modern Customer Relationship Management system for Waldseilgarten Herrenberg.
 
 | Variable | Description | Default |
 |----------|-------------|----------|
-| `POSTGRES_USER` | Database user | waldseilgarten |
+| `POSTGRES_USER` | Database user | crm_user |
 | `POSTGRES_PASSWORD` | Database password | changeme_secure_password |
-| `POSTGRES_DB` | Database name | waldseilgarten_crm |
+| `POSTGRES_DB` | Database name | mini_crm |
 | `JWT_SECRET` | JWT signing key | your-super-secret-jwt-key |
-| `VITE_API_URL` | API URL for frontend | https://api.crm.waldseilgarten-herrenberg.de |
+| `VITE_API_URL` | API URL for frontend | https://api.your-domain.com |
 
 ### Traefik Configuration
 
