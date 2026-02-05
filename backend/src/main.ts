@@ -15,23 +15,31 @@ async function bootstrap() {
     }),
   );
 
-  // CORS
+  // CORS Configuration
+  const corsOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',')
+    : [
+        process.env.FRONTEND_URL || 'http://localhost:3000',
+        'http://localhost:3000',
+        'http://localhost:5173'
+      ];
+
   app.enableCors({
-    origin: [
-      'https://crm.waldseilgarten-herrenberg.de',
-      'http://localhost:3000',
-      'http://localhost:5173'
-    ],
+    origin: corsOrigins,
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Accept, Authorization',
   });
 
   // Swagger API Docs
+  const apiTitle = process.env.API_TITLE || 'Mini CRM API';
+  const apiDescription = process.env.API_DESCRIPTION || 'API Documentation for Mini CRM';
+  const apiVersion = process.env.API_VERSION || '1.0';
+
   const config = new DocumentBuilder()
-    .setTitle('Waldseilgarten CRM API')
-    .setDescription('API Documentation for Waldseilgarten CRM')
-    .setVersion('1.0')
+    .setTitle(apiTitle)
+    .setDescription(apiDescription)
+    .setVersion(apiVersion)
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);

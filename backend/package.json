@@ -1,7 +1,7 @@
 {
-  "name": "waldseilgarten-crm-backend",
+  "name": "mini-crm-backend",
   "version": "1.0.0",
-  "description": "Waldseilgarten CRM Backend API",
+  "description": "Mini CRM Backend API",
   "author": "",
   "private": true,
   "license": "MIT",
