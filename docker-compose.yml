@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Datenbank
+  postgres:
+    image: docker.io/postgres:18-alpine
+    container_name: waldseilgarten-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-waldseilgarten}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-waldseilgarten_crm}
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - waldseilgarten-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-waldseilgarten} -d ${POSTGRES_DB:-waldseilgarten_crm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: docker.io/redis:7-alpine
+    container_name: waldseilgarten-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-changeme_redis_password}
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - waldseilgarten-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (NestJS)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: waldseilgarten-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-waldseilgarten}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-waldseilgarten_crm}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-changeme_redis_password}
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-24h}
+      DOCUMENT_STORAGE_PATH: /app/uploads/documents
+    volumes:
+      - ./data/uploads/documents:/app/uploads/documents
+    ports:
+      - "3001:3001"
+    networks:
+      - waldseilgarten-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.waldseilgarten-api.rule=Host(`api.crm.waldseilgarten-herrenberg.de`)"
+      - "traefik.http.routers.waldseilgarten-api.entrypoints=websecure"
+      - "traefik.http.routers.waldseilgarten-api.tls.certresolver=le"
+      - "traefik.http.services.waldseilgarten-api.loadbalancer.server.port=3001"
+
+  # Frontend (React)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: https://api.crm.waldseilgarten-herrenberg.de
+    container_name: waldseilgarten-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - waldseilgarten-network
+    depends_on:
+      - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.waldseilgarten.rule=Host(`crm.waldseilgarten-herrenberg.de`)"
+      - "traefik.http.routers.waldseilgarten.entrypoints=websecure"
+      - "traefik.http.routers.waldseilgarten.tls.certresolver=le"
+      - "traefik.http.services.waldseilgarten.loadbalancer.server.port=80"
+
+networks:
+  waldseilgarten-network:
+    driver: bridge
