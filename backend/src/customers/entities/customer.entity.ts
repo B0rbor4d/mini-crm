@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, DeleteDateColumn, OneToMany } from 'typeorm';
 import { Contact } from './contact.entity';
 
 @Entity('customers')
@@ -33,11 +33,17 @@ export class Customer {
   @Column({ default: 'active' })
   status: string;
 
+  @Column({ nullable: true, type: 'simple-array' })
+  tags: string[];
+
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn()
+  deletedAt: Date;
 
   @OneToMany(() => Contact, contact => contact.customer)
   contacts: Contact[];

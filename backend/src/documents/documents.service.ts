@@ -5,7 +5,8 @@ import { Document } from './entities/document.entity';
 import { CreateDocumentDto } from './dto/create-document.dto';
 import * as fs from 'fs';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { createReadStream } from 'fs';
+import { join } from 'path';
 
 @Injectable()
 export class DocumentsService {
@@ -25,7 +26,7 @@ export class DocumentsService {
     }
   }
 
-  async findAll(projectId?: string) {
+  async findAll(projectId?: string): Promise<Document[]> {
     const where = projectId ? { projectId } : {};
     return this.documentRepository.find({
       where,
@@ -34,7 +35,7 @@ export class DocumentsService {
     });
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<Document> {
     const document = await this.documentRepository.findOne({
       where: { id },
       relations: ['project'],
@@ -47,30 +48,26 @@ export class DocumentsService {
     return document;
   }
 
-  async upload(file: Express.Multer.File, createDocumentDto: CreateDocumentDto) {
+  async upload(
+    file: Express.Multer.File,
+    createDocumentDto: CreateDocumentDto,
+    uploadedBy = 'system'
+  ): Promise<Document> {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
-
-    const fileId = uuidv4();
-    const fileExtension = path.extname(file.originalname);
-    const storageFileName = `${fileId}${fileExtension}`;
-    const storagePath = path.join(this.uploadPath, storageFileName);
-
-    // Save file to disk
-    fs.writeFileSync(storagePath, file.buffer);
 
     // Create database record
     const document = this.documentRepository.create({
       name: file.originalname,
       originalName: file.originalname,
-      storagePath: storageFileName,
+      storagePath: file.filename, // Already UUID-based from multer
       mimeType: file.mimetype,
       sizeBytes: file.size,
-      projectId: createDocumentDto.projectId,
+      projectId: createDocumentDto.projectId || null,
       category: createDocumentDto.category,
       folderPath: createDocumentDto.folderPath || '/',
-      uploadedBy: 'system', // TODO: Get from auth context
+      uploadedBy,
       metadata: {
         description: createDocumentDto.description,
       },
@@ -79,7 +76,7 @@ export class DocumentsService {
     return this.documentRepository.save(document);
   }
 
-  async download(id: string) {
+  async download(id: string): Promise<{ file: fs.ReadStream; document: Document }> {
     const document = await this.findOne(id);
     const filePath = path.join(this.uploadPath, document.storagePath);
 
@@ -87,11 +84,11 @@ export class DocumentsService {
       throw new NotFoundException('File not found on disk');
     }
 
-    const file = fs.createReadStream(filePath);
+    const file = createReadStream(filePath);
     return { file, document };
   }
 
-  async update(id: string, updateData: Partial<CreateDocumentDto>) {
+  async update(id: string, updateData: Partial<CreateDocumentDto>): Promise<Document> {
     const document = await this.findOne(id);
     
     if (updateData.projectId !== undefined) {
@@ -110,7 +107,7 @@ export class DocumentsService {
     return this.documentRepository.save(document);
   }
 
-  async remove(id: string) {
+  async remove(id: string): Promise<{ message: string }> {
     const document = await this.findOne(id);
     const filePath = path.join(this.uploadPath, document.storagePath);
 

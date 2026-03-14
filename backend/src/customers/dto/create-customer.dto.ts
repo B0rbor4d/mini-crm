@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEmail, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsEmail, IsNotEmpty, IsArray, IsIn } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateCustomerDto {
@@ -41,4 +41,15 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ example: 'active', enum: ['active', 'inactive', 'prospect'] })
+  @IsOptional()
+  @IsIn(['active', 'inactive', 'prospect'])
+  status?: string;
+
+  @ApiPropertyOptional({ example: ['vip', 'referral'], type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
