@@ -30,8 +30,11 @@ const mockContact: Contact = {
   lastName: 'Doe',
   email: 'john@example.com',
   phone: '+1234567890',
+  mobile: '+1234567891',
   position: 'Manager',
+  department: 'Sales',
   isPrimary: true,
+  notes: 'Test contact',
   customerId: '1',
   customer: mockCustomer,
   createdAt: new Date(),
@@ -247,7 +250,7 @@ describe('CustomersService', () => {
     it('should throw NotFoundException if customer not found', async () => {
       customerRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.addContact('999', { firstName: 'Test', email: 'test@test.com' }))
+      await expect(service.addContact('999', { firstName: 'Test', lastName: 'Test', email: 'test@test.com' }))
         .rejects.toThrow(NotFoundException);
     });
   });
