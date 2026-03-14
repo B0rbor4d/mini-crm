@@ -1,58 +1,38 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UploadedFile, UseInterceptors, Res, StreamableFile } from '@nestjs/common';
+import { Controller, Post, Body, UseInterceptors, UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, UseGuards } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiTags, ApiOperation, ApiResponse, ApiConsumes } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiConsumes, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { DocumentsService } from './documents.service';
 import { CreateDocumentDto } from './dto/create-document.dto';
-import { Response } from 'express';
 
 @ApiTags('documents')
 @Controller('documents')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 export class DocumentsController {
   constructor(private readonly documentsService: DocumentsService) {}
 
-  @Get()
-  @ApiOperation({ summary: 'Get all documents' })
-  findAll(@Query('projectId') projectId?: string) {
-    return this.documentsService.findAll(projectId);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Get document by ID' })
-  findOne(@Param('id') id: string) {
-    return this.documentsService.findOne(id);
-  }
-
-  @Get(':id/download')
-  @ApiOperation({ summary: 'Download document' })
-  async download(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
-    const { file, document } = await this.documentsService.download(id);
-    res.set({
-      'Content-Type': document.mimeType || 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${document.originalName}"`,
-    });
-    return new StreamableFile(file);
-  }
-
   @Post('upload')
-  @ApiOperation({ summary: 'Upload document' })
-  @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
-  upload(
-    @UploadedFile() file: Express.Multer.File,
+  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 uploads per minute
+  @ApiOperation({ summary: 'Upload a document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiResponse({ status: 201, description: 'Document uploaded successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid file' })
+  @ApiResponse({ status: 429, description: 'Too many requests' })
+  async uploadFile(
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 10 * 1024 * 1024 }), // 10MB
+          new FileTypeValidator({ fileType: /(jpg|jpeg|png|pdf|doc|docx)$/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
     @Body() createDocumentDto: CreateDocumentDto,
   ) {
     return this.documentsService.upload(file, createDocumentDto);
-  }
-
-  @Put(':id')
-  @ApiOperation({ summary: 'Update document metadata' })
-  update(@Param('id') id: string, @Body() updateData: Partial<CreateDocumentDto>) {
-    return this.documentsService.update(id, updateData);
-  }
-
-  @Delete(':id')
-  @ApiOperation({ summary: 'Delete document' })
-  remove(@Param('id') id: string) {
-    return this.documentsService.remove(id);
   }
 }

@@ -16,4 +16,4 @@ RUN npm run build
 EXPOSE 3001
 
 # Start
-CMD ["npm", "run", "start:prod"]
+CMD node dist/src/main
