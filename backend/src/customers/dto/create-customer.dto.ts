@@ -1,53 +1,33 @@
-import { IsString, IsOptional, IsEmail, IsNotEmpty, IsArray, IsIn } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsEmail, IsArray } from 'class-validator';
 
 export class CreateCustomerDto {
-  @ApiProperty({ example: 'Acme Corporation' })
   @IsString()
-  @IsNotEmpty()
-  name: string;
+  companyName: string;
 
-  @ApiPropertyOptional({ example: 'Technology' })
   @IsOptional()
   @IsString()
   industry?: string;
 
-  @ApiPropertyOptional({ example: 'https://acme.com' })
   @IsOptional()
   @IsString()
   website?: string;
 
-  @ApiPropertyOptional({ example: '123 Main St' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsEmail()
+  email?: string;
+
   @IsOptional()
   @IsString()
   address?: string;
 
-  @ApiPropertyOptional({ example: 'Stuttgart' })
-  @IsOptional()
-  @IsString()
-  city?: string;
-
-  @ApiPropertyOptional({ example: '70173' })
-  @IsOptional()
-  @IsString()
-  postalCode?: string;
-
-  @ApiPropertyOptional({ example: 'Germany' })
-  @IsOptional()
-  @IsString()
-  country?: string;
-
-  @ApiPropertyOptional({ example: 'Important client from Stuttgart' })
   @IsOptional()
   @IsString()
   notes?: string;
 
-  @ApiPropertyOptional({ example: 'active', enum: ['active', 'inactive', 'prospect'] })
-  @IsOptional()
-  @IsIn(['active', 'inactive', 'prospect'])
-  status?: string;
-
-  @ApiPropertyOptional({ example: ['vip', 'referral'], type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })

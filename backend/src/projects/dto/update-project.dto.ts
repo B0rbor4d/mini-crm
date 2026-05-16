@@ -1,40 +1,36 @@
-import { IsString, IsOptional, IsEnum, IsNumber, IsDateString } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ProjectStatus } from '../entities/project.entity';
+import { IsString, IsOptional, IsEmail, IsBoolean, IsEnum, IsDateString, IsNumber } from 'class-validator';
+import { ProjectStatus, ProjectPriority } from '../../entities/project.entity';
 
 export class UpdateProjectDto {
-  @ApiPropertyOptional({ example: 'Website Relaunch 2.0' })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ example: 'Updated description' })
   @IsOptional()
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ enum: ProjectStatus })
+  @IsOptional()
+  @IsString()
+  customerId?: string;
+
   @IsOptional()
   @IsEnum(ProjectStatus)
   status?: ProjectStatus;
 
-  @ApiPropertyOptional({ example: '2026-03-01' })
+  @IsOptional()
+  @IsEnum(ProjectPriority)
+  priority?: ProjectPriority;
+
   @IsOptional()
   @IsDateString()
-  startDate?: Date;
+  startDate?: string;
 
-  @ApiPropertyOptional({ example: '2026-06-30' })
   @IsOptional()
   @IsDateString()
-  endDate?: Date;
+  endDate?: string;
 
-  @ApiPropertyOptional({ example: 20000.00 })
   @IsOptional()
   @IsNumber()
   budget?: number;
-
-  @ApiPropertyOptional({ example: 'uuid-of-customer' })
-  @IsOptional()
-  @IsString()
-  customerId?: string;
 }

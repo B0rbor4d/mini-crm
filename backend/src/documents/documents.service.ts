@@ -1,123 +1,160 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Document } from './entities/document.entity';
-import { CreateDocumentDto } from './dto/create-document.dto';
-import * as fs from 'fs';
-import * as path from 'path';
-import { createReadStream } from 'fs';
+import { Document } from '../entities/document.entity';
+import { createWriteStream, existsSync, mkdirSync, createReadStream } from 'fs';
 import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import archiver from 'archiver';
 
 @Injectable()
 export class DocumentsService {
-  private readonly uploadPath: string;
+  private readonly uploadDir = join(process.cwd(), 'uploads');
 
   constructor(
     @InjectRepository(Document)
     private documentRepository: Repository<Document>,
   ) {
-    this.uploadPath = process.env.DOCUMENT_STORAGE_PATH || './uploads/documents';
-    this.ensureUploadPath();
-  }
-
-  private ensureUploadPath() {
-    if (!fs.existsSync(this.uploadPath)) {
-      fs.mkdirSync(this.uploadPath, { recursive: true });
+    if (!existsSync(this.uploadDir)) {
+      mkdirSync(this.uploadDir, { recursive: true });
     }
   }
 
-  async findAll(projectId?: string): Promise<Document[]> {
-    const where = projectId ? { projectId } : {};
-    return this.documentRepository.find({
+  async uploadFile(
+    file: Express.Multer.File,
+    userId: string,
+    projectId?: string,
+    customerId?: string,
+  ): Promise<Document> {
+    const fileExtension = file.originalname.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
+    const filePath = join(this.uploadDir, fileName);
+
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = createWriteStream(filePath);
+      writeStream.write(file.buffer);
+      writeStream.end();
+      writeStream.on('finish', () => resolve());
+      writeStream.on('error', reject);
+    });
+
+    const document = this.documentRepository.create({
+      name: fileName,
+      originalName: file.originalname,
+      storagePath: filePath,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      projectId,
+      customerId,
+      uploadedById: userId,
+    });
+
+    return this.documentRepository.save(document);
+  }
+
+  async createVersion(
+    originalDocumentId: string,
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<Document> {
+    const originalDoc = await this.findOne(originalDocumentId);
+    
+    const fileExtension = file.originalname.split('.').pop();
+    const fileName = `${uuidv4()}.${fileExtension}`;
+    const filePath = join(this.uploadDir, fileName);
+
+    await new Promise<void>((resolve, reject) => {
+      const writeStream = createWriteStream(filePath);
+      writeStream.write(file.buffer);
+      writeStream.end();
+      writeStream.on('finish', () => resolve());
+      writeStream.on('error', reject);
+    });
+
+    const document = this.documentRepository.create({
+      name: fileName,
+      originalName: file.originalname,
+      storagePath: filePath,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      projectId: originalDoc.projectId,
+      customerId: originalDoc.customerId,
+      uploadedById: userId,
+      version: originalDoc.version + 1,
+      previousVersionId: originalDocumentId,
+    });
+
+    return this.documentRepository.save(document);
+  }
+
+  async getVersions(documentId: string): Promise<Document[]> {
+    const document = await this.findOne(documentId);
+    
+    // Find all versions of this document chain
+    const versions = await this.documentRepository.find({
+      where: [
+        { id: documentId },
+        { previousVersionId: documentId },
+      ],
+      order: { version: 'DESC' },
+    });
+
+    return versions;
+  }
+
+  async findAll(query: { page?: number; limit?: number; projectId?: string; customerId?: string } = {}): Promise<{ data: Document[]; total: number; page: number; limit: number }> {
+    const { page = 1, limit = 10, projectId, customerId } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (projectId) where.projectId = projectId;
+    if (customerId) where.customerId = customerId;
+
+    const [data, total] = await this.documentRepository.findAndCount({
       where,
-      relations: ['project'],
+      relations: ['project', 'customer', 'uploadedBy'],
+      skip,
+      take: limit,
       order: { createdAt: 'DESC' },
     });
+
+    return { data, total, page, limit };
   }
 
   async findOne(id: string): Promise<Document> {
     const document = await this.documentRepository.findOne({
       where: { id },
-      relations: ['project'],
+      relations: ['project', 'customer', 'uploadedBy'],
     });
 
     if (!document) {
-      throw new NotFoundException('Document not found');
+      throw new NotFoundException(`Document with ID ${id} not found`);
     }
 
     return document;
   }
 
-  async upload(
-    file: Express.Multer.File,
-    createDocumentDto: CreateDocumentDto,
-    uploadedBy = 'system'
-  ): Promise<Document> {
-    if (!file) {
-      throw new BadRequestException('No file provided');
-    }
-
-    // Create database record
-    const document = this.documentRepository.create({
-      name: file.originalname,
-      originalName: file.originalname,
-      storagePath: file.filename, // Already UUID-based from multer
-      mimeType: file.mimetype,
-      sizeBytes: file.size,
-      projectId: createDocumentDto.projectId || null,
-      category: createDocumentDto.category,
-      folderPath: createDocumentDto.folderPath || '/',
-      uploadedBy,
-      metadata: {
-        description: createDocumentDto.description,
-      },
-    });
-
-    return this.documentRepository.save(document);
-  }
-
-  async download(id: string): Promise<{ file: fs.ReadStream; document: Document }> {
-    const document = await this.findOne(id);
-    const filePath = path.join(this.uploadPath, document.storagePath);
-
-    if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('File not found on disk');
-    }
-
-    const file = createReadStream(filePath);
-    return { file, document };
-  }
-
-  async update(id: string, updateData: Partial<CreateDocumentDto>): Promise<Document> {
-    const document = await this.findOne(id);
+  async createZip(documentIds: string[]): Promise<NodeJS.ReadableStream> {
+    const archive = archiver('zip', { zlib: { level: 9 } });
     
-    if (updateData.projectId !== undefined) {
-      document.projectId = updateData.projectId;
-    }
-    if (updateData.category !== undefined) {
-      document.category = updateData.category;
-    }
-    if (updateData.folderPath !== undefined) {
-      document.folderPath = updateData.folderPath;
-    }
-    if (updateData.description !== undefined) {
-      document.metadata = { ...document.metadata, description: updateData.description };
+    for (const id of documentIds) {
+      try {
+        const document = await this.findOne(id);
+        if (existsSync(document.storagePath)) {
+          archive.file(document.storagePath, { name: document.originalName });
+        }
+      } catch (error) {
+        // Skip documents that don't exist
+        continue;
+      }
     }
 
-    return this.documentRepository.save(document);
+    archive.finalize();
+    return archive;
   }
 
-  async remove(id: string): Promise<{ message: string }> {
-    const document = await this.findOne(id);
-    const filePath = path.join(this.uploadPath, document.storagePath);
-
-    // Delete file from disk
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
-
-    // Delete database record
-    await this.documentRepository.remove(document);
-    return { message: 'Document deleted successfully' };
+  async remove(id: string): Promise<void> {
+    await this.findOne(id);
+    await this.documentRepository.delete(id);
   }
 }

@@ -1,13 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { EmailsController } from './emails.controller';
 import { EmailsService } from './emails.service';
-import { Email } from './entities/email.entity';
+import { ImapService } from './imap.service';
+import { EncryptionService } from './encryption.service';
+import { EmailsController } from './emails.controller';
+import { Email, EmailAttachment } from '../entities/email.entity';
+import { ImapConfig } from '../entities/imap-config.entity';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Email])],
+  imports: [TypeOrmModule.forFeature([Email, EmailAttachment, ImapConfig]), AuthModule],
+  providers: [EmailsService, ImapService, EncryptionService],
   controllers: [EmailsController],
-  providers: [EmailsService],
-  exports: [EmailsService],
+  exports: [EmailsService, ImapService, EncryptionService],
 })
 export class EmailsModule {}

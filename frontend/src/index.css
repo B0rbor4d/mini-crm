@@ -1,10 +1,80 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-@theme {
-  --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+@layer base {
+  :root {
+    --background: 60 7% 97%;
+    --foreground: 140 20% 15%;
+    --card: 60 7% 97%;
+    --card-foreground: 140 20% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 140 20% 15%;
+    --primary: 100 55% 20%;
+    --primary-foreground: 60 7% 97%;
+    --secondary: 40 30% 90%;
+    --secondary-foreground: 140 20% 15%;
+    --muted: 40 20% 92%;
+    --muted-foreground: 140 10% 40%;
+    --accent: 40 50% 50%;
+    --accent-foreground: 60 7% 97%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 100 20% 85%;
+    --input: 100 20% 85%;
+    --ring: 100 55% 20%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 140 25% 8%;
+    --foreground: 60 7% 97%;
+    --card: 140 20% 12%;
+    --card-foreground: 60 7% 97%;
+    --popover: 140 20% 10%;
+    --popover-foreground: 60 7% 97%;
+    --primary: 100 40% 35%;
+    --primary-foreground: 60 7% 97%;
+    --secondary: 100 15% 20%;
+    --secondary-foreground: 60 7% 97%;
+    --muted: 140 15% 18%;
+    --muted-foreground: 100 10% 60%;
+    --accent: 40 40% 40%;
+    --accent-foreground: 60 7% 97%;
+    --destructive: 0 62.8% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 140 15% 20%;
+    --input: 140 15% 20%;
+    --ring: 100 40% 35%;
+  }
 }
 
-/* Dark mode support */
-.dark {
-  color-scheme: dark;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
 }

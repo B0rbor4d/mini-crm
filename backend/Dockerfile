@@ -1,19 +1,21 @@
-FROM node:24-alpine
+# Build stage
+FROM node:22-alpine AS builder
 
 WORKDIR /app
-
-# Install dependencies
 COPY package*.json ./
-RUN npm install
-
-# Copy source
+RUN npm ci
 COPY . .
-
-# Build
 RUN npm run build
 
-# Expose port
+# Production stage
+FROM node:22-alpine
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY --from=builder /app/dist ./dist
+
+ENV NODE_ENV=production
 EXPOSE 3001
 
-# Start
-CMD node dist/src/main
+CMD ["node", "dist/main"]

@@ -1,70 +1,87 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Email } from './entities/email.entity';
-import { EmailFilterDto } from './dto/email.dto';
+import { Repository, Like, IsNull } from 'typeorm';
+import { Email, EmailAttachment } from '../entities/email.entity';
+import { UpdateEmailDto } from './dto/update-email.dto';
+import { QueryEmailsDto } from './dto/query-emails.dto';
 
 @Injectable()
 export class EmailsService {
   constructor(
     @InjectRepository(Email)
     private emailRepository: Repository<Email>,
+    @InjectRepository(EmailAttachment)
+    private attachmentRepository: Repository<EmailAttachment>,
   ) {}
 
-  async findAll(filters: EmailFilterDto) {
+  async findAll(query: QueryEmailsDto): Promise<{ data: Email[]; total: number; page: number; limit: number }> {
+    const { page = 1, limit = 20, search, customerId, projectId, isRead, folder } = query;
+    const skip = (page - 1) * limit;
+
     const where: any = {};
     
-    if (filters.projectId) {
-      where.projectId = filters.projectId;
-    }
+    if (customerId) where.customerId = customerId;
+    if (projectId) where.projectId = projectId;
+    if (isRead !== undefined) where.isRead = isRead;
+    if (folder) where.folder = folder;
     
-    if (filters.unreadOnly) {
-      where.isRead = false;
+    if (search) {
+      where.subject = Like(`%${search}%`);
     }
 
-    return this.emailRepository.find({
+    const [data, total] = await this.emailRepository.findAndCount({
       where,
-      relations: ['project'],
-      order: { sentAt: 'DESC' },
+      relations: ['attachments', 'customer', 'project'],
+      order: { receivedAt: 'DESC' },
+      skip,
+      take: limit,
     });
+
+    return { data, total, page, limit };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string): Promise<Email> {
     const email = await this.emailRepository.findOne({
       where: { id },
-      relations: ['project'],
+      relations: ['attachments', 'customer', 'project'],
     });
 
     if (!email) {
-      throw new NotFoundException('Email not found');
+      throw new NotFoundException(`Email with ID ${id} not found`);
     }
 
     return email;
   }
 
-  async assignToProject(id: string, projectId: string) {
+  async update(id: string, dto: UpdateEmailDto): Promise<Email> {
     const email = await this.findOne(id);
-    email.projectId = projectId;
-    return this.emailRepository.save(email);
-  }
-
-  async markAsRead(id: string) {
-    const email = await this.findOne(id);
-    email.isRead = true;
-    return this.emailRepository.save(email);
-  }
-
-  // Called by IMAP worker
-  async createOrUpdate(emailData: Partial<Email>) {
-    const existing = await this.emailRepository.findOne({
-      where: { messageId: emailData.messageId },
-    });
-
-    if (existing) {
-      return existing;
+    
+    if (dto.customerId !== undefined) {
+      email.customerId = dto.customerId;
+    }
+    if (dto.projectId !== undefined) {
+      email.projectId = dto.projectId;
+    }
+    if (dto.isRead !== undefined) {
+      email.isRead = dto.isRead;
     }
 
-    const email = this.emailRepository.create(emailData);
     return this.emailRepository.save(email);
+  }
+
+  async remove(id: string): Promise<void> {
+    const email = await this.findOne(id);
+    await this.emailRepository.remove(email);
+  }
+
+  async getStats(): Promise<{ total: number; unread: number; synced: number; unassigned: number }> {
+    const [total, unread, synced, unassigned] = await Promise.all([
+      this.emailRepository.count(),
+      this.emailRepository.count({ where: { isRead: false } }),
+      this.emailRepository.count({ where: { isSynced: true } }),
+      this.emailRepository.count({ where: { customerId: IsNull(), projectId: IsNull() } }),
+    ]);
+
+    return { total, unread, synced, unassigned };
   }
 }

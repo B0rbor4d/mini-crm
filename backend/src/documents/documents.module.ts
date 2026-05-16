@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
-import { Document } from './entities/document.entity';
+import { DocumentsController } from './documents.controller';
+import { AuthModule } from '../auth/auth.module';
+import { Document } from '../entities/document.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Document])],
-  controllers: [DocumentsController],
+  imports: [TypeOrmModule.forFeature([Document]), AuthModule],
   providers: [DocumentsService],
-  exports: [DocumentsService],
+  controllers: [DocumentsController],
 })
 export class DocumentsModule {}
